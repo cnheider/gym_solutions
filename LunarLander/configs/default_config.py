@@ -1,3 +1,4 @@
+# coding=utf-8
 """
 Description: Config for training
 Author: Christian Heider Nielsen
@@ -16,8 +17,9 @@ CONNECT_TO_RUNNING_ENVIRONMENT = False
 SPACER_SIZE = 60
 SECONDS_IN_A_MINUTE = 60
 USE_CUDA_IF_AVAILABLE = True
-LOAD_PREVIOUS_MODEL_IF_AVAILABLE = False
+LOAD_PREVIOUS_MODEL_IF_AVAILABLE = True
 RENDER_ENVIRONMENT = False
+WINDOW_SIZE = 10
 
 # Paths
 DATA_SET = 'neodroid'
@@ -38,11 +40,10 @@ EPS_START = 0.9
 EPS_END = 0.06
 EPS_DECAY = 1000
 
-
 # Architecture
 ARCHITECTURE_CONFIGURATION = {
-  'input_size' : 0,
-  'number_of_layes': 2,
+  'input_size'        : 0,
+  'number_of_layers'   : 2,
   'hidden_layers_size': 50,
-  'output_size': 0
+  'output_size'       : 0
 }

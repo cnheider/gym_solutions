@@ -1,33 +1,25 @@
-import glob
+# coding=utf-8
 import datetime
+import glob
+import os
 import time
 from itertools import count
-import os
-import math
-import random
 
+import gym
 import torch
 import torch.optim as optimisation
-import neodroid as neo
-import torch.nn.functional as F
-import gym
-
 from PIL import ImageFile
-from torch.autograd import Variable
 from visdom import Visdom
 
-from utilities.data.processing import data_transform
-from utilities.visualisation import update_visualiser
-
-from utilities.reinforment_learning.action import sample_action
-from utilities.reinforment_learning.filtering import is_non_terminal
-from utilities.reinforment_learning.replay_memory import (
-  ReplayMemory,
-  TransitionQuadruple)
-from utilities.reinforment_learning.loss import calculate_loss
-
-from architectures.dqn import MyDQN
 import configs.default_config as configuration
+from architectures.dqn import MyDQN
+from utilities.reinforment_learning.action import sample_action, \
+  random_use_model
+from utilities.reinforment_learning.loss import calculate_loss
+from utilities.reinforment_learning.replay_memory import (
+  ReplayMemory)
+from utilities.visualisation import update_visualiser
+from utilities.visualisation.moving_average import StatisticAggregator
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -39,43 +31,51 @@ FloatTensor = torch.cuda.FloatTensor if _use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if _use_cuda else torch.LongTensor
 ByteTensor = torch.cuda.ByteTensor if _use_cuda else torch.ByteTensor
 
+
 def training_loop(model,
                   target_model,
                   environment,
                   visualiser=None):
-  windows={}
-  steps_taken = 0
+  """
 
-  episode_durations = []
+  :param model:
+  :param target_model:
+  :param environment:
+  :param visualiser:
+  :return:
+  """
+  # Statistics
+  windows = {}
+
+  total_steps_taken = 0
+  episode_losses = StatisticAggregator(window_size=configuration.WINDOW_SIZE)
+  episode_rewards = StatisticAggregator(window_size=configuration.WINDOW_SIZE)
+  episode_durations = StatisticAggregator(window_size=configuration.WINDOW_SIZE)
   memory = ReplayMemory(configuration.REPLAY_MEMORY_SIZE)
 
-  optimiser = optimisation.Adam(model.parameters(), lr=configuration.LEARNING_RATE)
+  optimiser = optimisation.Adam(model.parameters(),
+                                lr=configuration.LEARNING_RATE)
 
   training_start_timestamp = time.time()
   print('-' * configuration.SPACER_SIZE)
-  for i_episode in range(configuration.NUM_EPISODES):
-    print('Episode {}/{}'.format(i_episode, configuration.NUM_EPISODES - 1))
+  for episode_i in range(configuration.NUM_EPISODES):
+    print('Episode {}/{}'.format(episode_i, configuration.NUM_EPISODES - 1))
 
-    observations = environment.reset()   # Initial state
+    episode_loss = 0
+    episode_reward = 0
+
+    observations = environment.reset()  # Initial state
     state = FloatTensor([observations])
-    reward = 0
-    action = 0
-    terminated = False
 
     for episode_frame_number in count():
       if configuration.RENDER_ENVIRONMENT:
         environment.render()
 
-      sample = random.random()
-      eps_threshold = configuration.EPS_END + ((configuration.EPS_START - configuration.EPS_END) * math.exp(-1. * steps_taken / configuration.EPS_DECAY))
-      if sample > eps_threshold:
-        action = sample_action(state, model, steps_taken)
-        observations, reward, terminated, _ = environment.step(action[0,0])
-      else:
-        action = environment.action_space.sample()
-        observations, reward, terminated, _ = environment.step(action)
-        action = LongTensor([[action]])
-      steps_taken += 1
+      environment_action = environment.action_space.sample()
+      action = LongTensor([[environment_action]])
+      if random_use_model(configuration, total_steps_taken):
+        action = sample_action(state, model)
+      observations, reward, terminated, _ = environment.step(action[0, 0])
 
       state = FloatTensor([observations])
 
@@ -83,42 +83,63 @@ def training_loop(model,
       if not terminated:
         next_state = state
 
-      reward_tensor = FloatTensor([reward]) # Convert to tensor
+      reward_tensor = FloatTensor([reward])  # Convert to tensor
 
       memory.push(state, action, next_state, reward_tensor)
 
-      state = next_state # Transition the before state to be 'next_state' in which the last action was execute and the observed
+      # Transition the before state to be 'next_state' in which the last action was execute and the observed
+      state = next_state
 
-      loss=0
+      loss = 0
       if len(memory) >= configuration.BATCH_SIZE:
 
-        transitions = memory.sample(configuration.BATCH_SIZE)  # Not necessarily consecutive
+        transitions = memory.sample(
+            configuration.BATCH_SIZE)  # Not necessarily consecutive
 
-        loss = calculate_loss(model, target_model, transitions, configuration)
+        loss_variable = calculate_loss(model,
+                                       target_model,
+                                       transitions,
+                                       configuration,
+                                       _use_cuda)
 
         optimiser.zero_grad()
-        loss.backward()
+        loss_variable.backward() # backward pass w.r.t the loss
         for param in model.parameters():
-          param.grad.data.clamp_(-1, 1) # Clamp the gradient
+          param.grad.data.clamp_(-1, 1)  # Clamp the gradient
         optimiser.step()
+        loss = loss_variable.data[0]
 
-      if steps_taken % configuration.SYNC_TARGET_MODEL_FREQUENCY == 0: # Update target model with the parameters of the learning model
+      # Update target model with the parameters of the learning model
+      if total_steps_taken % configuration.SYNC_TARGET_MODEL_FREQUENCY == 0:
         target_model.load_state_dict(model.state_dict())
         print('*** Target model synchronised ***')
 
+      total_steps_taken += 1
+      episode_reward += reward
+      episode_loss += loss
+
       if terminated:
-        print('Terminated')
+        print('Episode terminated')
         episode_length = episode_frame_number + 1
+
+        episode_losses.append(episode_loss)
+        episode_rewards.append(episode_reward)
         episode_durations.append(episode_length)
-        rgb_array = environment.render(mode='rgb_array').swapaxes(0,2).swapaxes(1,2)
+
+        rgb_array = environment.render(mode='rgb_array')
         if visualiser:
           windows = update_visualiser(
-          visualiser,
-          i_episode,
-          loss.data[0],
-          episode_length,
-          rgb_array,
-          windows)
+              visualiser,
+              episode_i,
+              episode_loss / episode_length,
+              episode_losses.moving_average(configuration.WINDOW_SIZE),
+              episode_reward / episode_length,
+              episode_rewards.moving_average(configuration.WINDOW_SIZE),
+              episode_length,
+              episode_durations.moving_average(configuration.WINDOW_SIZE),
+              rgb_array.swapaxes(0, 2).swapaxes(1, 2),
+              windows,
+              configuration)
         break
 
     print('-' * configuration.SPACER_SIZE)
@@ -130,16 +151,24 @@ def training_loop(model,
 
   return model
 
+
 def main():
+  """
+
+  :return:
+  """
   _visualiser = Visdom(configuration.VISDOM_SERVER)
 
   _environment = gym.make('LunarLander-v2')
   _environment.seed(configuration.RANDOM_SEED)
 
-  configuration.ARCHITECTURE_CONFIGURATION['input_size']  = _environment.observation_space.shape[0] # (coord_x, coord_y, vel_x, vel_y, angle, angular_vel, l_leg_on_ground, r_leg_on_ground)
+  # (coord_x, coord_y, vel_x, vel_y, angle, angular_vel, l_leg_on_ground, r_leg_on_ground)
+  configuration.ARCHITECTURE_CONFIGURATION['input_size'] = \
+    _environment.observation_space.shape[0]
   print('observation dimensions: ', _environment.observation_space.shape[0])
 
-  configuration.ARCHITECTURE_CONFIGURATION['output_size'] = _environment.action_space.n
+  configuration.ARCHITECTURE_CONFIGURATION[
+    'output_size'] = _environment.action_space.n
   print('action dimensions: ', _environment.action_space.n)
 
   _model = MyDQN(configuration.ARCHITECTURE_CONFIGURATION)
@@ -162,9 +191,12 @@ def main():
 
   _model_date = datetime.datetime.now()
   _model_name = '{}-{}-{}.model'.format(configuration.DATA_SET,
-                                        configuration.CONFIG_NAME.replace('.', '_'),
+                                        configuration.CONFIG_NAME.replace('.',
+                                                                          '_'),
                                         _model_date.strftime('%y%m%d%H%M'))
-  torch.save(_model, os.path.join(configuration.MODEL_DIRECTORY, _model_name))
+  torch.save(_target_model,
+             os.path.join(configuration.MODEL_DIRECTORY, _model_name))
+
 
 if __name__ == '__main__':
   VISDOM_PROCESS = None
@@ -181,5 +213,6 @@ if __name__ == '__main__':
 
   if VISDOM_PROCESS:
     input(
-        'Keeping visdom running, pressing enter will terminate visdom process..')
+        'Keeping visdom running, pressing '
+        'enter will terminate visdom process..')
     VISDOM_PROCESS.terminate()

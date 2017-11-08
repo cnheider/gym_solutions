@@ -1,3 +1,4 @@
+# coding=utf-8
 """
 Description: Config for training
 Author: Christian Heider Nielsen
@@ -33,17 +34,18 @@ EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 10000
 
-
 # Architecture
 USE_ALL_DOFS = False
 DOFS = 12
 if not USE_ALL_DOFS:
   DOFS = 6
 ARCHITECTURE_CONFIGURATION = {
-  'input_size' : 4, #3 * 2 * 2 + 3,  # target(position,rotation,direction)
+  'input_size'        : 4,
+  # 3 * 2 * 2 + 3,  # target(position,rotation,direction)
   # #gripper(position,rotation,direction)
-  'number_of_layes': 3,
+  'number_of_layers'   : 3,
   'hidden_layers_size': 60,
-  'output_size': DOFS+1  # gripper(+positional,+rotational,-positional,
+  'output_size'       : DOFS + 1
+  # gripper(+positional,+rotational,-positional,
   # -rotational)+nothing motions
 }
