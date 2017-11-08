@@ -7,16 +7,17 @@ import os
 
 # General
 CONFIG_NAME = __name__
-RANDOM_SEED = 42
+RANDOM_SEED = 6
 START_VISDOM_SERVER = True
 VISDOM_SERVER = 'http://localhost'
 if not START_VISDOM_SERVER:
   VISDOM_SERVER = 'http://visdom.ml'
 CONNECT_TO_RUNNING_ENVIRONMENT = False
-SPACER_SIZE = 40
+SPACER_SIZE = 60
 SECONDS_IN_A_MINUTE = 60
 USE_CUDA_IF_AVAILABLE = True
-RENDER_ENVIRONMENT =True
+LOAD_PREVIOUS_MODEL_IF_AVAILABLE = False
+RENDER_ENVIRONMENT = False
 
 # Paths
 DATA_SET = 'neodroid'
@@ -26,21 +27,22 @@ DEPTH_IMAGES_DIRECTORY = 'depth'
 MODEL_DIRECTORY = 'models'
 
 # Training parameters
-LEARNING_RATE=1e-2
-NUM_EPISODES = 200
-BATCH_SIZE = 100
+LEARNING_RATE = 1e-3
+WEIGHT_DECAY = 0.999
+NUM_EPISODES = 1000
+BATCH_SIZE = 60
 SYNC_TARGET_MODEL_FREQUENCY = 1000
-REPLAY_MEMORY_SIZE = 200000
+REPLAY_MEMORY_SIZE = 60000
 GAMMA = 0.999
 EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = 10000
+EPS_END = 0.06
+EPS_DECAY = 1000
 
 
 # Architecture
 ARCHITECTURE_CONFIGURATION = {
-  'input_size' : 3 * 3 * 2,
-  'number_of_layes': 1,
-  'hidden_layers_size': 100,
-  'output_size': 1
+  'input_size' : 0,
+  'number_of_layes': 2,
+  'hidden_layers_size': 50,
+  'output_size': 0
 }

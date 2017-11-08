@@ -1,39 +1,45 @@
 import numpy as np
 
-
-def update_visualiser(visualiser, phase, epoch_loss, running_loss, epoch,
-                      widget_index_number_evaluation,
-                      widget_index_number_training):
-  if phase == 'evaluation':
-    if widget_index_number_evaluation:
-      visualiser.line(
-          X=np.array([epoch]),
-          Y=np.array([epoch_loss]),
-          opts={'title': 'evaluation loss',
-                'ytype': 'log'},
-          win=widget_index_number_evaluation,
-          update='append')
-
-    else:
-      widget_index_number_evaluation = visualiser.line(
-          X=np.array([epoch]),
-          Y=np.array([running_loss]),
-          opts={'title': 'evaluation loss',
-                'ytype': 'log'})
+def update_visualiser(visualiser, episode, loss, episode_length, rgb_array, windows):
+  loss_window = None
+  if 'loss' in windows:
+    loss_window = windows['loss']
+    visualiser.line(
+      X=np.array([episode]),
+      Y=np.array([loss]),
+      opts={'title': 'loss',
+            'ytype': 'log'},
+      win=loss_window,
+      update='append')
   else:
-    if widget_index_number_training:
-      visualiser.line(
-          X=np.array([epoch]),
-          Y=np.array([epoch_loss]),
-          opts={'title': 'training loss',
-                'ytype': 'log'},
-          win=widget_index_number_training,
-          update='append')
-    else:
-      widget_index_number_training = visualiser.line(
-          X=np.array([epoch]),
-          Y=np.array([running_loss]),
-          opts={'title': 'training loss',
-                'ytype': 'log'})
+    windows['loss'] = visualiser.line(
+      X=np.array([episode]),
+      Y=np.array([loss]),
+      opts={'title': 'loss',
+            'ytype': 'log'})
 
-  return widget_index_number_evaluation, widget_index_number_training
+  episode_window = None
+  if 'episode_length' in windows:
+    episode_window = windows['episode_length']
+    visualiser.line(
+        X=np.array([episode]),
+        Y=np.array([episode_length]),
+        opts={'title': 'episode length',
+              'ytype': 'log'},
+        win=episode_window,
+        update='append')
+  else:
+    windows['episode_length'] = visualiser.line(
+    X=np.array([episode]),
+    Y=np.array([episode_length]),
+    opts={'title': 'episode length',
+          'ytype': 'log'})
+
+  rgb_array_window = None
+  if 'rgb_array' in windows:
+    rgb_array_window = windows['rgb_array']
+    visualiser.image(rgb_array, win=rgb_array_window)
+  else:
+    windows['rgb_array'] = visualiser.image(rgb_array)
+
+  return windows
