@@ -4,6 +4,7 @@ import glob
 import os
 import time
 from itertools import count
+import shutil
 
 import gym
 import torch
@@ -12,9 +13,9 @@ from PIL import ImageFile
 from visdom import Visdom
 
 import configs.default_config as configuration
-from architectures.dqn import MyDQN
+from architectures.mlp import LinearOutputAffineMLP
 from utilities.reinforment_learning.action import sample_action, \
-  random_use_model
+  maybe_sample_from_model
 from utilities.reinforment_learning.loss import calculate_loss
 from utilities.reinforment_learning.replay_memory import (
   ReplayMemory)
@@ -30,6 +31,8 @@ if configuration.USE_CUDA_IF_AVAILABLE:
 FloatTensor = torch.cuda.FloatTensor if _use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if _use_cuda else torch.LongTensor
 ByteTensor = torch.cuda.ByteTensor if _use_cuda else torch.ByteTensor
+
+torch.manual_seed(configuration.RANDOM_SEED)
 
 
 def training_loop(model,
@@ -48,18 +51,25 @@ def training_loop(model,
   windows = {}
 
   total_steps_taken = 0
-  episode_losses = StatisticAggregator(window_size=configuration.WINDOW_SIZE)
-  episode_rewards = StatisticAggregator(window_size=configuration.WINDOW_SIZE)
-  episode_durations = StatisticAggregator(window_size=configuration.WINDOW_SIZE)
+  episode_losses = StatisticAggregator(configuration.WINDOW_SIZE)
+  episode_rewards = StatisticAggregator(configuration.WINDOW_SIZE)
+  episode_durations = StatisticAggregator(configuration.WINDOW_SIZE)
   memory = ReplayMemory(configuration.REPLAY_MEMORY_SIZE)
 
   optimiser = optimisation.Adam(model.parameters(),
                                 lr=configuration.LEARNING_RATE)
+                                #weight_decay=configuration.WEIGHT_DECAY)
+
+  #optimiser = optimisation.RMSprop(model.parameters(),
+  #                                 lr=configuration.LEARNING_RATE)
+  #                                 weight_decay=configuration.WEIGHT_DECAY)
 
   training_start_timestamp = time.time()
   print('-' * configuration.SPACER_SIZE)
   for episode_i in range(configuration.NUM_EPISODES):
-    print('Episode {}/{}'.format(episode_i, configuration.NUM_EPISODES - 1))
+    print('Episode {}/{} | Total steps taken {}'.format(episode_i,
+                                         configuration.NUM_EPISODES - 1,
+                                          total_steps_taken))
 
     episode_loss = 0
     episode_reward = 0
@@ -71,46 +81,52 @@ def training_loop(model,
       if configuration.RENDER_ENVIRONMENT:
         environment.render()
 
+      # Sample action based on the state from last iteration and take a step
       environment_action = environment.action_space.sample()
       action = LongTensor([[environment_action]])
-      if random_use_model(configuration, total_steps_taken):
+      if maybe_sample_from_model(configuration, total_steps_taken) and \
+              total_steps_taken > configuration.OBSERVATION_THRESHOLD:
         action = sample_action(state, model)
       observations, reward, terminated, _ = environment.step(action[0, 0])
 
+      # Convert to tensors
       state = FloatTensor([observations])
+      reward_tensor = FloatTensor([reward])
+      non_terminal_tensor = ByteTensor([not terminated])
 
-      next_state = None
+      # If environment terminated then there is no next state
+      future = None
       if not terminated:
-        next_state = state
+        future = state
 
-      reward_tensor = FloatTensor([reward])  # Convert to tensor
-
-      memory.push(state, action, next_state, reward_tensor)
-
-      # Transition the before state to be 'next_state' in which the last action was execute and the observed
-      state = next_state
+      # Transition the before state to be 'future'
+      # in which the last action was execute and the observed
+      memory.push(state, action, reward_tensor, future, non_terminal_tensor)
+      state = future
 
       loss = 0
-      if len(memory) >= configuration.BATCH_SIZE:
-
-        transitions = memory.sample(
-            configuration.BATCH_SIZE)  # Not necessarily consecutive
+      if len(memory) >= configuration.BATCH_SIZE and \
+              total_steps_taken > configuration.OBSERVATION_THRESHOLD and \
+          total_steps_taken % configuration.LEARNING_FREQUENCY == 0:
+        random_transitions = memory.sample(configuration.BATCH_SIZE)
 
         loss_variable = calculate_loss(model,
                                        target_model,
-                                       transitions,
+                                       random_transitions,
                                        configuration,
                                        _use_cuda)
 
         optimiser.zero_grad()
         loss_variable.backward() # backward pass w.r.t the loss
-        for param in model.parameters():
-          param.grad.data.clamp_(-1, 1)  # Clamp the gradient
+        if configuration.CLAMP_GRADIENT:
+          for param in model.parameters():
+            param.grad.data.clamp_(-1, 1)  # Clamp the gradient
         optimiser.step()
         loss = loss_variable.data[0]
 
       # Update target model with the parameters of the learning model
-      if total_steps_taken % configuration.SYNC_TARGET_MODEL_FREQUENCY == 0:
+      if total_steps_taken % configuration.SYNC_TARGET_MODEL_FREQUENCY == 0 \
+          and configuration.DOUBLE_DQN:
         target_model.load_state_dict(model.state_dict())
         print('*** Target model synchronised ***')
 
@@ -119,7 +135,6 @@ def training_loop(model,
       episode_loss += loss
 
       if terminated:
-        print('Episode terminated')
         episode_length = episode_frame_number + 1
 
         episode_losses.append(episode_loss)
@@ -140,6 +155,7 @@ def training_loop(model,
               rgb_array.swapaxes(0, 2).swapaxes(1, 2),
               windows,
               configuration)
+        print('Episode terminated')
         break
 
     print('-' * configuration.SPACER_SIZE)
@@ -149,7 +165,8 @@ def training_loop(model,
       time_elapsed // configuration.SECONDS_IN_A_MINUTE,
       time_elapsed % configuration.SECONDS_IN_A_MINUTE))
 
-  return model
+  target_model.load_state_dict(model.state_dict())
+  return target_model
 
 
 def main():
@@ -159,7 +176,7 @@ def main():
   """
   _visualiser = Visdom(configuration.VISDOM_SERVER)
 
-  _environment = gym.make('LunarLander-v2')
+  _environment = gym.make(configuration.GYM_ENVIRONMENT)
   _environment.seed(configuration.RANDOM_SEED)
 
   # (coord_x, coord_y, vel_x, vel_y, angle, angular_vel, l_leg_on_ground, r_leg_on_ground)
@@ -171,13 +188,13 @@ def main():
     'output_size'] = _environment.action_space.n
   print('action dimensions: ', _environment.action_space.n)
 
-  _model = MyDQN(configuration.ARCHITECTURE_CONFIGURATION)
+  _model = LinearOutputAffineMLP(configuration.ARCHITECTURE_CONFIGURATION)
   if configuration.LOAD_PREVIOUS_MODEL_IF_AVAILABLE:
     _list_of_files = glob.glob(configuration.MODEL_DIRECTORY + '/*')
     _latest_model = max(_list_of_files, key=os.path.getctime)
     print('loading previous model: ' + _latest_model)
     _model = torch.load(_latest_model)
-  _target_model = MyDQN(configuration.ARCHITECTURE_CONFIGURATION)
+  _target_model = LinearOutputAffineMLP(configuration.ARCHITECTURE_CONFIGURATION)
   _target_model.load_state_dict(_model.state_dict())
 
   if _use_cuda:
@@ -194,8 +211,14 @@ def main():
                                         configuration.CONFIG_NAME.replace('.',
                                                                           '_'),
                                         _model_date.strftime('%y%m%d%H%M'))
-  torch.save(_target_model,
-             os.path.join(configuration.MODEL_DIRECTORY, _model_name))
+  _model_path = os.path.join(configuration.MODEL_DIRECTORY, _model_name)
+  torch.save(_target_model, _model_path)
+
+  shutil.copyfile(os.path.join(configuration.CONFIG_DIRECTORY,
+                               configuration.CONFIG_FILE),
+                  _model_path+'.py')
+
+
 
 
 if __name__ == '__main__':

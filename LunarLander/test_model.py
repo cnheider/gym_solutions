@@ -28,8 +28,7 @@ def testing_loop(model,
     state = FloatTensor([observations])
 
     for episode_frame_number in count():
-      if configuration.RENDER_ENVIRONMENT:
-        environment.render()
+      environment.render()
 
       action_index = sample_action(state, model)
       observations, reward, terminated, _ = environment.step(
@@ -49,7 +48,7 @@ def main():
 
   """
 
-  _environment = gym.make('LunarLander-v2')
+  _environment = gym.make(configuration.GYM_ENVIRONMENT)
 
   _list_of_files = glob.glob(configuration.MODEL_DIRECTORY + '/*')
   _latest_model = max(_list_of_files, key=os.path.getctime)

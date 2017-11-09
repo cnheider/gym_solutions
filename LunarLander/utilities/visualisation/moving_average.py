@@ -13,7 +13,4 @@ class StatisticAggregator:
     self.values.append(val)
 
   def moving_average(self, window_size=100):
-    return sum(self.values[-window_size:])/window_size
-
-  def get_size(self):
-    return self.count
+    return np.mean(self.values[-window_size:])

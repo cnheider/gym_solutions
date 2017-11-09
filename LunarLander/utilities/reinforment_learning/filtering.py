@@ -1,5 +1,5 @@
 # coding=utf-8
-def is_non_terminal(state):
+def is_nt(state):
   """
 
   :param state:

@@ -13,8 +13,9 @@ random.seed(configuration.RANDOM_SEED)
 TransitionQuadruple = namedtuple('Transition',
                                  ('state',
                                   'action',
-                                  'next_state',
-                                  'reward'))
+                                  'reward',
+                                  'future',
+                                  'non_terminal'))
 
 
 class ReplayMemory(object):

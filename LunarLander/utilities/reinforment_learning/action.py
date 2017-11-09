@@ -19,13 +19,17 @@ def sample_action(input_state, model):
   :param model:
   :return:
   """
-  model_input = Variable(input_state, volatile=True).type(FloatTensor)
+  model_input = Variable(input_state, volatile=True).type(FloatTensor) #
+  # Volatile because the loss computation step will recalculate model
+  # predictions for the gradient update
   action_probabilities = model(model_input)
-  action = action_probabilities.multinomial()
-  return action.data
+  #action = action_probabilities.multinomial()
+  action = action_probabilities.data.max(1)[1].view(1, 1)
+  #print(model_input,action_probabilities,action)
+  return action
 
 
-def random_use_model(configuration, steps_taken):
+def maybe_sample_from_model(configuration, steps_taken):
   """
 
   :param configuration:
