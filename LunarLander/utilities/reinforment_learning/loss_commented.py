@@ -49,7 +49,8 @@ def calculate_loss(current_model, target_model, transitions, configuration, use_
   # Compute V(s_{t+1})=max_{a}(Q(s_{t+1},a)), the maximum reward that can be expected in the next state s_{t+1] after taking the action a in s_{t}
     # Max expected value of all next states for terminal transition tuples, they will just be equal to 0
   V_futures = Variable(torch.zeros(configuration.BATCH_SIZE).type(FloatTensor))
-  V_futures[non_terminals] = Q_futures.detach().max(1)[0] # The max value of
+  V_futures[non_terminals] = Q_futures.detach().max(1)[0] #Detach variable from the current graph since we don't want gradients for next Q to propagated
+  # The max value of
   # expected value of futures, detached because we should not back prop loss
   # through V_futures
 

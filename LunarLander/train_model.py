@@ -10,15 +10,18 @@ import gym
 import torch
 import torch.optim as optimisation
 from PIL import ImageFile
+from torch.autograd import Variable
 from visdom import Visdom
+import numpy as np
+import torch.nn.functional as F
 
 import configs.default_config as configuration
 from architectures.mlp import LinearOutputAffineMLP
 from utilities.reinforment_learning.action import sample_action, \
-  maybe_sample_from_model
-from utilities.reinforment_learning.loss import calculate_loss
+  epsilon_random
+from utilities.reinforment_learning.optimisation import optimise_model
 from utilities.reinforment_learning.replay_memory import (
-  ReplayMemory)
+  ReplayMemory, TransitionQuadruple)
 from utilities.visualisation import update_visualiser
 from utilities.visualisation.moving_average import StatisticAggregator
 
@@ -31,6 +34,8 @@ if configuration.USE_CUDA_IF_AVAILABLE:
 FloatTensor = torch.cuda.FloatTensor if _use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if _use_cuda else torch.LongTensor
 ByteTensor = torch.cuda.ByteTensor if _use_cuda else torch.ByteTensor
+StateTensorType = FloatTensor
+ActionTensorType = LongTensor
 
 torch.manual_seed(configuration.RANDOM_SEED)
 
@@ -56,12 +61,14 @@ def training_loop(model,
   episode_durations = StatisticAggregator(configuration.WINDOW_SIZE)
   memory = ReplayMemory(configuration.REPLAY_MEMORY_SIZE)
 
-  optimiser = optimisation.Adam(model.parameters(),
-                                lr=configuration.LEARNING_RATE)
+  #optimiser = optimisation.Adam(model.parameters(),
+  #                              lr=configuration.LEARNING_RATE)
                                 #weight_decay=configuration.WEIGHT_DECAY)
 
-  #optimiser = optimisation.RMSprop(model.parameters(),
-  #                                 lr=configuration.LEARNING_RATE)
+  optimiser = optimisation.RMSprop(model.parameters(),
+                                   lr=configuration.LEARNING_RATE,
+                                   eps=configuration.EPSILON,
+                                   alpha=configuration.ALPHA)
   #                                 weight_decay=configuration.WEIGHT_DECAY)
 
   training_start_timestamp = time.time()
@@ -75,54 +82,50 @@ def training_loop(model,
     episode_reward = 0
 
     observations = environment.reset()  # Initial state
-    state = FloatTensor([observations])
+    state = StateTensorType([observations])
 
     for episode_frame_number in count():
       if configuration.RENDER_ENVIRONMENT:
         environment.render()
 
       # Sample action based on the state from last iteration and take a step
-      environment_action = environment.action_space.sample()
-      action = LongTensor([[environment_action]])
-      if maybe_sample_from_model(configuration, total_steps_taken) and \
-              total_steps_taken > configuration.OBSERVATION_THRESHOLD:
-        action = sample_action(state, model)
+      action = sample_action(environment,
+                             model,
+                             state,
+                             configuration,
+                             total_steps_taken)
       observations, reward, terminated, _ = environment.step(action[0, 0])
 
+      if configuration.CLIP_REWARD:
+        reward = max(-1.0, min(reward, 1.0)) # Reward clipping
+
       # Convert to tensors
-      state = FloatTensor([observations])
       reward_tensor = FloatTensor([reward])
       non_terminal_tensor = ByteTensor([not terminated])
 
       # If environment terminated then there is no next state
       future = None
       if not terminated:
-        future = state
+        future = StateTensorType([observations])
 
       # Transition the before state to be 'future'
       # in which the last action was execute and the observed
       memory.push(state, action, reward_tensor, future, non_terminal_tensor)
+
       state = future
 
       loss = 0
       if len(memory) >= configuration.BATCH_SIZE and \
-              total_steps_taken > configuration.OBSERVATION_THRESHOLD and \
+              total_steps_taken > configuration.INITIAL_OBSERVATION_PERIOD and \
           total_steps_taken % configuration.LEARNING_FREQUENCY == 0:
         random_transitions = memory.sample(configuration.BATCH_SIZE)
 
-        loss_variable = calculate_loss(model,
-                                       target_model,
-                                       random_transitions,
-                                       configuration,
-                                       _use_cuda)
-
-        optimiser.zero_grad()
-        loss_variable.backward() # backward pass w.r.t the loss
-        if configuration.CLAMP_GRADIENT:
-          for param in model.parameters():
-            param.grad.data.clamp_(-1, 1)  # Clamp the gradient
-        optimiser.step()
-        loss = loss_variable.data[0]
+        loss = optimise_model(model,
+                                      target_model,
+                                      optimiser,
+                                      random_transitions,
+                                      configuration,
+                                      _use_cuda)
 
       # Update target model with the parameters of the learning model
       if total_steps_taken % configuration.SYNC_TARGET_MODEL_FREQUENCY == 0 \
@@ -205,6 +208,9 @@ def main():
                                 _target_model,
                                 _environment,
                                 _visualiser)
+
+  _environment.render(close=True)
+  _environment.close()
 
   _model_date = datetime.datetime.now()
   _model_name = '{}-{}-{}.model'.format(configuration.DATA_SET,

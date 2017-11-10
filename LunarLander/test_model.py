@@ -30,7 +30,7 @@ def testing_loop(model,
     for episode_frame_number in count():
       environment.render()
 
-      action_index = sample_action(state, model)
+      action_index = sample_action(environment, model, state, configuration)
       observations, reward, terminated, _ = environment.step(
           action_index[0, 0])
       state = FloatTensor([observations])
@@ -50,7 +50,7 @@ def main():
 
   _environment = gym.make(configuration.GYM_ENVIRONMENT)
 
-  _list_of_files = glob.glob(configuration.MODEL_DIRECTORY + '/*')
+  _list_of_files = glob.glob(configuration.MODEL_DIRECTORY + '/*.model')
   _latest_model = max(_list_of_files, key=os.path.getctime)
 
   print('loading latest model: ' + _latest_model)
