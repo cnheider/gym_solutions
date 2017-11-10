@@ -7,7 +7,7 @@ Author: Christian Heider Nielsen
 import os
 
 # CONSTANTS
-WINDOW_SIZE = 20
+MOVING_AVERAGE_WINDOW = 100
 SPACER_SIZE = 60
 SECONDS_IN_A_MINUTE = 60
 RANDOM_SEED = 6
@@ -18,10 +18,11 @@ CONFIG_FILE = __file__
 USE_CUDA_IF_AVAILABLE = True
 
 # Visualisation
-START_VISDOM_SERVER = True
+USE_VISDOM = True
+START_VISDOM_SERVER = False
 VISDOM_SERVER = 'http://localhost'
-if not START_VISDOM_SERVER:
-  VISDOM_SERVER = 'http://visdom.ml'
+#if not START_VISDOM_SERVER:
+#  VISDOM_SERVER = 'http://visdom.ml'
 
 # Paths
 DATA_SET = 'neodroid'
@@ -38,23 +39,23 @@ RENDER_ENVIRONMENT = False
 GYM_ENVIRONMENT = 'CartPole-v0'
 #GYM_ENVIRONMENT = 'Pong-v0'
 #GYM_ENVIRONMENT = 'Pong-ram-v0'
-NUM_EPISODES = 3000
+NUM_EPISODES = 4000
 
 # Epsilon random action parameters
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 10000
+EPS_DECAY = 35000
 
 # Training parameters
 LOAD_PREVIOUS_MODEL_IF_AVAILABLE = False
 DOUBLE_DQN = True
-CLIP_REWARD = True
+CLIP_REWARD = False
 CLAMP_GRADIENT = True
 BATCH_SIZE = 32
 LEARNING_FREQUENCY = 4
 SYNC_TARGET_MODEL_FREQUENCY = 10000
-REPLAY_MEMORY_SIZE = 100000
-INITIAL_OBSERVATION_PERIOD = 1000
+REPLAY_MEMORY_SIZE = 1000000
+INITIAL_OBSERVATION_PERIOD = 5000
 DISCOUNT_FACTOR = 0.99
 
 # Optimiser
@@ -66,6 +67,6 @@ EPSILON = 0.01
 # Architecture
 ARCHITECTURE_CONFIGURATION = {
   'input_size'        : 0,
-  'hidden_layers': [16,32,16],
+  'hidden_layers': [64,32,16],
   'output_size'       : 0
 }

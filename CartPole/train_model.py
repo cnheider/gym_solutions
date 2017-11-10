@@ -56,9 +56,9 @@ def training_loop(model,
   windows = {}
 
   total_steps_taken = 0
-  episode_losses = StatisticAggregator(configuration.WINDOW_SIZE)
-  episode_rewards = StatisticAggregator(configuration.WINDOW_SIZE)
-  episode_durations = StatisticAggregator(configuration.WINDOW_SIZE)
+  episode_losses = StatisticAggregator(configuration.MOVING_AVERAGE_WINDOW)
+  episode_rewards = StatisticAggregator(configuration.MOVING_AVERAGE_WINDOW)
+  episode_durations = StatisticAggregator(configuration.MOVING_AVERAGE_WINDOW)
   memory = ReplayMemory(configuration.REPLAY_MEMORY_SIZE)
 
   #optimiser = optimisation.Adam(model.parameters(),
@@ -116,8 +116,8 @@ def training_loop(model,
 
       loss = 0
       if len(memory) >= configuration.BATCH_SIZE and \
-              total_steps_taken > configuration.INITIAL_OBSERVATION_PERIOD and \
-          total_steps_taken % configuration.LEARNING_FREQUENCY == 0:
+            total_steps_taken > configuration.INITIAL_OBSERVATION_PERIOD and \
+              total_steps_taken % configuration.LEARNING_FREQUENCY == 0:
         random_transitions = memory.sample(configuration.BATCH_SIZE)
 
         loss = optimise_model(model,
@@ -138,23 +138,24 @@ def training_loop(model,
       episode_loss += loss
 
       if terminated:
-        episode_length = episode_frame_number + 1
+        if visualiser and configuration.USE_VISDOM:
+          episode_length = episode_frame_number + 1
 
-        episode_losses.append(episode_loss)
-        episode_rewards.append(episode_reward)
-        episode_durations.append(episode_length)
+          episode_losses.append(episode_loss)
+          episode_rewards.append(episode_reward)
+          episode_durations.append(episode_length)
 
-        rgb_array = environment.render(mode='rgb_array')
-        if visualiser:
+          rgb_array = environment.render(mode='rgb_array')
+
           windows = update_visualiser(
               visualiser,
               episode_i,
               episode_loss / episode_length,
-              episode_losses.moving_average(configuration.WINDOW_SIZE),
+              episode_losses.moving_average(configuration.MOVING_AVERAGE_WINDOW),
               episode_reward / episode_length,
-              episode_rewards.moving_average(configuration.WINDOW_SIZE),
+              episode_rewards.moving_average(configuration.MOVING_AVERAGE_WINDOW),
               episode_length,
-              episode_durations.moving_average(configuration.WINDOW_SIZE),
+              episode_durations.moving_average(configuration.MOVING_AVERAGE_WINDOW),
               rgb_array.swapaxes(0, 2).swapaxes(1, 2),
               windows,
               configuration)
@@ -163,13 +164,16 @@ def training_loop(model,
 
     print('-' * configuration.SPACER_SIZE)
 
+    if episode_rewards.moving_average(configuration.MOVING_AVERAGE_WINDOW) >= 200:
+      break
+
   time_elapsed = time.time() - training_start_timestamp
   print('Training done, time elapsed: {:.0f}m {:.0f}s'.format(
       time_elapsed // configuration.SECONDS_IN_A_MINUTE,
       time_elapsed % configuration.SECONDS_IN_A_MINUTE))
 
-  target_model.load_state_dict(model.state_dict())
-  return target_model
+  #target_model.load_state_dict(model.state_dict())
+  return model
 
 
 def main():

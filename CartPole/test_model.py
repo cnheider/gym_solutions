@@ -5,19 +5,17 @@ from itertools import count
 
 import gym
 import torch
+from torch.autograd import Variable
 
 import configs.default_config as configuration
 from utilities.reinforment_learning.action import sample_action
 
 _use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if _use_cuda else torch.FloatTensor
-LongTensor = torch.cuda.LongTensor if _use_cuda else torch.LongTensor
-ByteTensor = torch.cuda.ByteTensor if _use_cuda else torch.ByteTensor
 
 
 def testing_loop(model,
                  environment):
-  episode_durations = []
 
   print('-' * configuration.SPACER_SIZE)
   for i_episode in range(configuration.NUM_EPISODES):
@@ -28,16 +26,17 @@ def testing_loop(model,
     state = FloatTensor([observations])
 
     for episode_frame_number in count():
+      print('Frame {}'.format(episode_frame_number))
       environment.render()
 
-      action_index = sample_action(environment, model, state, configuration)
-      observations, reward, terminated, _ = environment.step(
+      model_input = Variable(state, volatile=True).type(FloatTensor)
+      action_probabilities = model(model_input)
+      action_index = action_probabilities.data.max(1)[1].view(1, 1)
+      observations, _, terminated, _ = environment.step(
           action_index[0, 0])
       state = FloatTensor([observations])
 
       if terminated:
-        episode_durations.append(episode_frame_number + 1)
-        print('Interrupted')
         break
 
     print('-' * configuration.SPACER_SIZE)
