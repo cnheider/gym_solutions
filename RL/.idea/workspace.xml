@@ -23,19 +23,6 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="mlp.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/../RL/architectures/mlp.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="0">
-              <caret line="20" column="0" lean-forward="false" selection-start-line="20" selection-start-column="0" selection-end-line="20" selection-end-column="0" />
-              <folding>
-                <element signature="e#539#1053#0" expanded="true" />
-                <element signature="e#1083#1231#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
       <file leaf-file-name="test_model.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../RL/test_model.py">
           <provider selected="true" editor-type-id="text-editor">
@@ -116,11 +103,21 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="default_config.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="default_config.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../RL/configs/default_config.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="570">
               <caret line="41" column="1" lean-forward="false" selection-start-line="41" selection-start-column="1" selection-end-line="41" selection-end-column="1" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="mnih_2013_config.py" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/../RL/configs/mnih_2013_config.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="675">
+              <caret line="48" column="19" lean-forward="false" selection-start-line="48" selection-start-column="19" selection-end-line="48" selection-end-column="19" />
               <folding />
             </state>
           </provider>
@@ -178,6 +175,7 @@
         <option value="$PROJECT_DIR$/../RL/test_model.py" />
         <option value="$PROJECT_DIR$/../RL/models/neodroid-configs_default_config-1711121503.model.py" />
         <option value="$PROJECT_DIR$/../RL/configs/default_config.py" />
+        <option value="$PROJECT_DIR$/../RL/configs/mnih_2013_config.py" />
       </list>
     </option>
   </component>
@@ -187,7 +185,7 @@
     <detection-done>true</detection-done>
     <sorting>DEFINITION_ORDER</sorting>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
+  <component name="ProjectFrameBounds" extendedState="4">
     <option name="x" value="24" />
     <option name="y" value="25" />
     <option name="width" value="936" />
@@ -264,12 +262,13 @@
     <property name="settings.editor.splitter.proportion" value="0.27619982" />
   </component>
   <component name="RecentsManager">
-    <key name="MoveFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$" />
-    </key>
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/../RL/configs" />
       <recent name="$PROJECT_DIR$/utilities/reinforment_learning" />
       <recent name="$PROJECT_DIR$/configs" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -531,7 +530,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="23" y="-1" width="1874" height="1058" extended-state="6" />
+    <frame x="24" y="25" width="936" height="1031" extended-state="4" />
     <editor active="true" />
     <layout>
       <window_info id="TODO" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
@@ -540,9 +539,9 @@
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32967034" sideWeight="0.5" order="6" side_tool="true" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Python Console" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3298687" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.4250547" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.8730337" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.11980306" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.1269663" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
@@ -578,16 +577,6 @@
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/../RL/train_model.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="315">
-          <caret line="21" column="48" lean-forward="false" selection-start-line="21" selection-start-column="48" selection-end-line="21" selection-end-column="48" />
-          <folding>
-            <element signature="e#15#30#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/../RL/test_model.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="300">
@@ -990,6 +979,14 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="570">
           <caret line="41" column="1" lean-forward="false" selection-start-line="41" selection-start-column="1" selection-end-line="41" selection-end-column="1" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../RL/configs/mnih_2013_config.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="675">
+          <caret line="48" column="19" lean-forward="false" selection-start-line="48" selection-start-column="19" selection-end-line="48" selection-end-column="19" />
           <folding />
         </state>
       </provider>
