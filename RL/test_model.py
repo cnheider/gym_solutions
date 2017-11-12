@@ -8,10 +8,13 @@ import torch
 from torch.autograd import Variable
 
 import configs.default_config as configuration
-from utilities.reinforment_learning.action import sample_action
 
 _use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if _use_cuda else torch.FloatTensor
+LongTensor = torch.cuda.FloatTensor if _use_cuda else torch.LongTensor
+StateTensorType = FloatTensor
+ActionTensorType = LongTensor
+
 
 
 def testing_loop(model,
@@ -23,7 +26,7 @@ def testing_loop(model,
 
     observations = environment.reset()  # Initial state
 
-    state = FloatTensor([observations])
+    state = StateTensorType([observations])
 
     for episode_frame_number in count():
       print('Frame {}'.format(episode_frame_number))
@@ -34,7 +37,7 @@ def testing_loop(model,
       action_index = action_probabilities.data.max(1)[1].view(1, 1)
       observations, _, terminated, _ = environment.step(
           action_index[0, 0])
-      state = FloatTensor([observations])
+      state = StateTensorType([observations])
 
       if terminated:
         break

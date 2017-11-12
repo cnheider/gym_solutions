@@ -39,6 +39,7 @@ RENDER_ENVIRONMENT = False
 GYM_ENVIRONMENT = 'CartPole-v0'
 #GYM_ENVIRONMENT = 'Pong-v0'
 #GYM_ENVIRONMENT = 'Pong-ram-v0'
+SOLVED_REWARD = 200
 NUM_EPISODES = 4000
 
 # Epsilon random action parameters

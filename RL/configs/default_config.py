@@ -35,10 +35,12 @@ CONFIG_DIRECTORY = 'configs'
 # Environment parameters
 CONNECT_TO_RUNNING_ENVIRONMENT = False
 RENDER_ENVIRONMENT = False
-#GYM_ENVIRONMENT = 'LunarLander-v2'
-GYM_ENVIRONMENT = 'CartPole-v0'
+GYM_ENVIRONMENT = 'LunarLander-v2'
+#GYM_ENVIRONMENT = 'CartPole-v0'
 #GYM_ENVIRONMENT = 'Pong-v0'
 #GYM_ENVIRONMENT = 'Pong-ram-v0'
+#GYM_ENVIRONMENT = 'Taxi-v2'
+SOLVED_REWARD = 200
 NUM_EPISODES = 4000
 
 # Epsilon random action parameters

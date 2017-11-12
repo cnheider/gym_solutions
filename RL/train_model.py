@@ -164,7 +164,8 @@ def training_loop(model,
 
     print('-' * configuration.SPACER_SIZE)
 
-    if episode_rewards.moving_average(configuration.MOVING_AVERAGE_WINDOW) >= 200:
+    if episode_rewards.moving_average(configuration.MOVING_AVERAGE_WINDOW) \
+        >= configuration.SOLVED_REWARD:
       break
 
   time_elapsed = time.time() - training_start_timestamp
