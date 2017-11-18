@@ -5,9 +5,8 @@ Author: Christian Heider Nielsen
 """
 from torch import nn
 from torch.nn import functional as F
-import numpy as np
 
-class LinearOutputAffineMLP(nn.Module):
+class MLP(nn.Module):
   """
   OOOO input_size
   |XX|                                        fc1
@@ -19,8 +18,8 @@ class LinearOutputAffineMLP(nn.Module):
   """
 
   def __init__(self, configuration):
-    super(LinearOutputAffineMLP, self).__init__()
-    self.fc1 = nn.Linear(configuration['input_size'],
+    super(MLP, self).__init__()
+    self.fc1 = nn.Linear(configuration['input_size'][0],
                          configuration['hidden_layers'][0])
     self.fc2 = nn.Linear(configuration['hidden_layers'][0],
                          configuration['hidden_layers'][1])

@@ -1,31 +1,22 @@
 # coding=utf-8
-import datetime
-import glob
-import os
 import time
 from itertools import count
-import shutil
 
 import gym
 import torch
 import torch.optim as optimisation
-from PIL import ImageFile
-from torch.autograd import Variable
 from visdom import Visdom
-import numpy as np
-import torch.nn.functional as F
 
 import configs.default_config as configuration
-from architectures.mlp import LinearOutputAffineMLP
-from utilities.reinforment_learning.action import sample_action, \
-  epsilon_random
+from architectures import MLP, CNN
+from utilities.data.processing import gray_downscale
+from utilities.persistence.model import save_model, load_model
+from utilities.reinforment_learning.action import sample_action
 from utilities.reinforment_learning.optimisation import optimise_model
-from utilities.reinforment_learning.replay_memory import (
-  ReplayMemory, TransitionQuadruple)
+from utilities.reinforment_learning.replay_memory import ReplayMemory
 from utilities.visualisation import update_visualiser
 from utilities.visualisation.moving_average import StatisticAggregator
-
-ImageFile.LOAD_TRUNCATED_IMAGES = True
+from utilities.visualisation.visdom_manager import VisdomManager
 
 _use_cuda = False
 if configuration.USE_CUDA_IF_AVAILABLE:
@@ -38,7 +29,6 @@ StateTensorType = FloatTensor
 ActionTensorType = LongTensor
 
 torch.manual_seed(configuration.RANDOM_SEED)
-
 
 def training_loop(model,
                   target_model,
@@ -53,7 +43,7 @@ def training_loop(model,
   :return:
   """
   # Statistics
-  windows = {}
+  visualisation_windows = {}
 
   total_steps_taken = 0
   episode_losses = StatisticAggregator(configuration.MOVING_AVERAGE_WINDOW)
@@ -61,15 +51,10 @@ def training_loop(model,
   episode_durations = StatisticAggregator(configuration.MOVING_AVERAGE_WINDOW)
   memory = ReplayMemory(configuration.REPLAY_MEMORY_SIZE)
 
-  #optimiser = optimisation.Adam(model.parameters(),
-  #                              lr=configuration.LEARNING_RATE)
-                                #weight_decay=configuration.WEIGHT_DECAY)
-
   optimiser = optimisation.RMSprop(model.parameters(),
                                    lr=configuration.LEARNING_RATE,
                                    eps=configuration.EPSILON,
                                    alpha=configuration.ALPHA)
-  #                                 weight_decay=configuration.WEIGHT_DECAY)
 
   training_start_timestamp = time.time()
   print('-' * configuration.SPACER_SIZE)
@@ -82,6 +67,7 @@ def training_loop(model,
     episode_reward = 0
 
     observations = environment.reset()  # Initial state
+    #state = gray_downscale(observations, _use_cuda)
     state = StateTensorType([observations])
 
     for episode_frame_number in count():
@@ -103,16 +89,15 @@ def training_loop(model,
       reward_tensor = FloatTensor([reward])
       non_terminal_tensor = ByteTensor([not terminated])
 
-      # If environment terminated then there is no next state
-      future = None
+      # If environment terminated then there is no successor state
+      successor_state = None
       if not terminated:
-        future = StateTensorType([observations])
+        #successor_state = gray_downscale(observations, _use_cuda)
+        successor_state = StateTensorType([observations])
 
-      # Transition the before state to be 'future'
-      # in which the last action was execute and the observed
-      memory.push(state, action, reward_tensor, future, non_terminal_tensor)
+      memory.push(state, action, reward_tensor, successor_state, non_terminal_tensor)
 
-      state = future
+      state = successor_state
 
       loss = 0
       if len(memory) >= configuration.BATCH_SIZE and \
@@ -127,15 +112,18 @@ def training_loop(model,
                                       configuration,
                                       _use_cuda)
 
+      total_steps_taken += 1
+      episode_reward += reward
+      episode_loss += loss
+
       # Update target model with the parameters of the learning model
       if total_steps_taken % configuration.SYNC_TARGET_MODEL_FREQUENCY == 0 \
           and configuration.DOUBLE_DQN:
         target_model.load_state_dict(model.state_dict())
         print('*** Target model synchronised ***')
 
-      total_steps_taken += 1
-      episode_reward += reward
-      episode_loss += loss
+      if episode_i % configuration.SAVE_MODEL_INTERVAL == 0:
+        save_model(model, configuration)
 
       if terminated:
         if visualiser and configuration.USE_VISDOM:
@@ -147,7 +135,7 @@ def training_loop(model,
 
           rgb_array = environment.render(mode='rgb_array')
 
-          windows = update_visualiser(
+          visualisation_windows = update_visualiser(
               visualiser,
               episode_i,
               episode_loss / episode_length,
@@ -157,7 +145,7 @@ def training_loop(model,
               episode_length,
               episode_durations.moving_average(configuration.MOVING_AVERAGE_WINDOW),
               rgb_array.swapaxes(0, 2).swapaxes(1, 2),
-              windows,
+              visualisation_windows,
               configuration)
         print('Episode terminated')
         break
@@ -173,8 +161,7 @@ def training_loop(model,
       time_elapsed // configuration.SECONDS_IN_A_MINUTE,
       time_elapsed % configuration.SECONDS_IN_A_MINUTE))
 
-  #target_model.load_state_dict(model.state_dict())
-  return model
+  return model # or target_model
 
 
 def main():
@@ -182,34 +169,38 @@ def main():
 
   :return:
   """
-  _visualiser = Visdom(configuration.VISDOM_SERVER)
+  _visualiser = None
+  if configuration.USE_VISDOM:
+    _visualiser = Visdom(configuration.VISDOM_SERVER)
 
   _environment = gym.make(configuration.GYM_ENVIRONMENT)
   _environment.seed(configuration.RANDOM_SEED)
 
   # (coord_x, coord_y, vel_x, vel_y, angle, angular_vel, l_leg_on_ground, r_leg_on_ground)
-  configuration.ARCHITECTURE_CONFIGURATION['input_size'] = \
-    _environment.observation_space.shape[0]
-  print('observation dimensions: ', _environment.observation_space.shape[0])
+  if configuration.ARCHITECTURE_CONFIGURATION['input_size'] < 0:
+    configuration.ARCHITECTURE_CONFIGURATION['input_size'] = \
+      _environment.observation_space.shape
+  print('observation dimensions: ', configuration.ARCHITECTURE_CONFIGURATION['input_size'])
 
-  configuration.ARCHITECTURE_CONFIGURATION[
-    'output_size'] = _environment.action_space.n
-  print('action dimensions: ', _environment.action_space.n)
+  if   configuration.ARCHITECTURE_CONFIGURATION[
+    'output_size'] < 0:
+    configuration.ARCHITECTURE_CONFIGURATION['output_size'] = \
+      _environment.action_space.n
+  print('action dimensions: ', configuration.ARCHITECTURE_CONFIGURATION['output_size'])
 
-  _model = LinearOutputAffineMLP(configuration.ARCHITECTURE_CONFIGURATION)
+  _model = MLP(configuration.ARCHITECTURE_CONFIGURATION)
+  #_model = CNN(configuration.ARCHITECTURE_CONFIGURATION)
   if configuration.LOAD_PREVIOUS_MODEL_IF_AVAILABLE:
-    _list_of_files = glob.glob(configuration.MODEL_DIRECTORY + '/*')
-    _latest_model = max(_list_of_files, key=os.path.getctime)
-    print('loading previous model: ' + _latest_model)
-    _model = torch.load(_latest_model)
-  _target_model = LinearOutputAffineMLP(configuration.ARCHITECTURE_CONFIGURATION)
+    _model = load_model(configuration)
+  _target_model = MLP(configuration.ARCHITECTURE_CONFIGURATION)
+  #_target_model = CNN(configuration.ARCHITECTURE_CONFIGURATION)
   _target_model.load_state_dict(_model.state_dict())
 
   if _use_cuda:
     _model = _model.cuda()
     _target_model.cuda()
 
-  _target_model = training_loop(_model,
+  _trained_model = training_loop(_model,
                                 _target_model,
                                 _environment,
                                 _visualiser)
@@ -217,36 +208,12 @@ def main():
   _environment.render(close=True)
   _environment.close()
 
-  _model_date = datetime.datetime.now()
-  _model_name = '{}-{}-{}.model'.format(configuration.DATA_SET,
-                                        configuration.CONFIG_NAME.replace('.',
-                                                                          '_'),
-                                        _model_date.strftime('%y%m%d%H%M'))
-  _model_path = os.path.join(configuration.MODEL_DIRECTORY, _model_name)
-  torch.save(_target_model, _model_path)
-
-  shutil.copyfile(os.path.join(configuration.CONFIG_DIRECTORY,
-                               configuration.CONFIG_FILE),
-                  _model_path+'.py')
-
-
-
+  save_model(_trained_model, configuration)
 
 if __name__ == '__main__':
-  VISDOM_PROCESS = None
-  if configuration.START_VISDOM_SERVER:
-    print("Starting visdom server process")
-    import subprocess
-
-    VISDOM_PROCESS = subprocess.Popen(
-        ['python3', 'utilities/visualisation/run_visdom_server.py'],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT)
+  VISDOM_MANAGER = VisdomManager()
+  VISDOM_MANAGER.start_visdom_process(configuration)
 
   main()
 
-  if VISDOM_PROCESS:
-    input(
-        'Keeping visdom running, pressing '
-        'enter will terminate visdom process..')
-    VISDOM_PROCESS.terminate()
+  VISDOM_MANAGER.stop_visdom_process()

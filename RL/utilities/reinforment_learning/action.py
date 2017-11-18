@@ -10,6 +10,7 @@ _use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if _use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if _use_cuda else torch.LongTensor
 ByteTensor = torch.cuda.ByteTensor if _use_cuda else torch.ByteTensor
+StateTensorType = FloatTensor
 ActionTensorType = LongTensor
 
 
@@ -26,7 +27,7 @@ def sample_action(environment,
   """
   if epsilon_random(configuration, total_steps_taken) and \
           total_steps_taken > configuration.INITIAL_OBSERVATION_PERIOD:
-    model_input = Variable(state, volatile=True).type(FloatTensor)
+    model_input = Variable(state, volatile=True).type(StateTensorType)
     action_probabilities = model(model_input)
     return action_probabilities.data.max(1)[1].view(1, 1)
   else:

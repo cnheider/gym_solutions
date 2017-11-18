@@ -8,14 +8,13 @@ import torch
 from torch.autograd import Variable
 
 import configs.default_config as configuration
+from architectures import MLP
 
 _use_cuda = torch.cuda.is_available()
 FloatTensor = torch.cuda.FloatTensor if _use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.FloatTensor if _use_cuda else torch.LongTensor
 StateTensorType = FloatTensor
 ActionTensorType = LongTensor
-
-
 
 def testing_loop(model,
                  environment):
@@ -52,18 +51,31 @@ def main():
 
   _environment = gym.make(configuration.GYM_ENVIRONMENT)
 
+  # (coord_x, coord_y, vel_x, vel_y, angle, angular_vel, l_leg_on_ground, r_leg_on_ground)
+  if configuration.ARCHITECTURE_CONFIGURATION['input_size'] < 0:
+    configuration.ARCHITECTURE_CONFIGURATION['input_size'] = \
+      _environment.observation_space.shape
+  print('observation dimensions: ', configuration.ARCHITECTURE_CONFIGURATION['input_size'])
+
+  if   configuration.ARCHITECTURE_CONFIGURATION[
+    'output_size'] < 0:
+    configuration.ARCHITECTURE_CONFIGURATION['output_size'] = \
+      _environment.action_space.n
+  print('action dimensions: ', configuration.ARCHITECTURE_CONFIGURATION['output_size'])
+
+
   _list_of_files = glob.glob(configuration.MODEL_DIRECTORY + '/*.model')
   _latest_model = max(_list_of_files, key=os.path.getctime)
 
   print('loading latest model: ' + _latest_model)
-
-  _model = torch.load(_latest_model)
+  _model = MLP(configuration.ARCHITECTURE_CONFIGURATION)
+  _model.load_state_dict(torch.load(_latest_model))
+  _model = _model.eval()
 
   if _use_cuda:
     _model = _model.cuda()
 
   testing_loop(_model, _environment)
-
 
 if __name__ == '__main__':
   main()

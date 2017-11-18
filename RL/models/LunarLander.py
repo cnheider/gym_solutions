@@ -11,7 +11,6 @@ MOVING_AVERAGE_WINDOW = 100
 SPACER_SIZE = 60
 SECONDS_IN_A_MINUTE = 60
 RANDOM_SEED = 6
-SAVE_MODEL_INTERVAL = 1000
 
 # General
 CONFIG_NAME = __name__
@@ -20,7 +19,7 @@ USE_CUDA_IF_AVAILABLE = True
 
 # Visualisation
 USE_VISDOM = True
-START_VISDOM_SERVER = True
+START_VISDOM_SERVER = False
 VISDOM_SERVER = 'http://localhost'
 #if not START_VISDOM_SERVER:
 #  VISDOM_SERVER = 'http://visdom.ml'
@@ -69,7 +68,7 @@ EPSILON = 0.01
 
 # Architecture
 ARCHITECTURE_CONFIGURATION = {
-  'input_size'        : -1, # Obtain from environment
-  'hidden_layers': [64, 32, 16],
-  'output_size'       : -1 # Obtain from environment
+  'input_size'        : -1,
+  'hidden_layers': [64,32,16],
+  'output_size'       : -1
 }

@@ -10,11 +10,11 @@ import configs.default_config as configuration
 
 random.seed(configuration.RANDOM_SEED)
 
-TransitionQuadruple = namedtuple('Transition',
+Transition = namedtuple('Transition',
                                  ('state',
                                   'action',
                                   'reward',
-                                  'future',
+                                  'successor_states',
                                   'non_terminal'))
 
 
@@ -31,7 +31,7 @@ class ReplayMemory(object):
     if len(self.memory) < self.capacity:
       self.memory.append(
           None)  # expand memory as needed, useful for sampling no None value state in sample()
-    self.memory[self.position] = TransitionQuadruple(*args)
+    self.memory[self.position] = Transition(*args)
     self.position = (self.position + 1) % self.capacity
 
   def sample(self, batch_size):
